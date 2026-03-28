@@ -644,3 +644,56 @@ body.stage-extra .case-badge {
   .editor-item-grid { grid-template-columns: 1fr; }
   .pool-pill { min-width: 100%; }
 }
+
+.force-pick-wrap {
+  min-width: 260px;
+}
+
+.editor-item-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.preview-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.preview-effect {
+  color: #ffe0aa;
+  font-size: 13px;
+}
+
+.pool-pill {
+  align-items: center;
+}
+
+.pool-info {
+  display: grid;
+  gap: 4px;
+}
+
+.pool-effect {
+  color: #ffe0aa;
+  font-size: 13px;
+}
+
+.pool-rarity {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.result-copy h3 {
+  margin-bottom: 8px;
+}
+
+@media (max-width: 1280px) {
+  .editor-item-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1024px) {
+  .force-pick-wrap {
+    min-width: 220px;
+  }
+}

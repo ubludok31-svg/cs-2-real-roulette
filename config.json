@@ -7,16 +7,17 @@
       "type": "regular",
       "label": "Раунд 1",
       "shortLabel": "R1",
-      "description": "Обычный этап. Выбирай кейс по номеру из чата.",
+      "description": "Открой кейс по номеру, который выбрали зрители.",
+      "forcedNextItemSignature": "",
       "cases": [
         {
           "id": 1,
           "name": "Кейс 01",
           "items": [
-            { "name": "Манго", "image": "https://placehold.co/600x600/101826/EAF1FF?text=Mango", "weight": 5, "rarity": "industrial" },
-            { "name": "Клубника", "image": "https://placehold.co/600x600/101826/EAF1FF?text=Strawberry", "weight": 4, "rarity": "mil-spec" },
-            { "name": "Галочка", "image": "https://placehold.co/600x600/101826/EAF1FF?text=Check", "weight": 2, "rarity": "restricted" },
-            { "name": "Бомба", "image": "https://placehold.co/600x600/101826/EAF1FF?text=Bomb", "weight": 1, "rarity": "covert" }
+            { "id": "demo_1", "name": "Манго", "image": "https://placehold.co/600x600/101826/EAF1FF?text=Mango", "weight": 5, "rarity": "industrial", "effect": "empty" },
+            { "id": "demo_2", "name": "Клубника", "image": "https://placehold.co/600x600/101826/EAF1FF?text=Strawberry", "weight": 4, "rarity": "mil-spec", "effect": "empty" },
+            { "id": "demo_3", "name": "Авто плюс 1", "image": "https://placehold.co/600x600/101826/EAF1FF?text=Auto+Plus+1", "weight": 2, "rarity": "restricted", "effect": "auto" },
+            { "id": "demo_4", "name": "Бомба", "image": "https://placehold.co/600x600/101826/EAF1FF?text=Bomb", "weight": 1, "rarity": "covert", "effect": "bomb" }
           ]
         }
       ]

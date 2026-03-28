@@ -1,9 +1,8 @@
 const STORAGE_KEY = 'stream-case-game-v6';
-const STAGE_TAB_ORDER = ['regular', 'extra'];
 const STAGE_DEFS = [
-  { id: 'round1', type: 'regular', label: 'Раунд 1', shortLabel: 'R1', description: 'Обычный этап. Выбирай кейс по номеру из чата.' },
+  { id: 'round1', type: 'regular', label: 'Раунд 1', shortLabel: 'R1', description: 'Открой кейс по номеру, который выбрали зрители.' },
   { id: 'round2', type: 'regular', label: 'Раунд 2', shortLabel: 'R2', description: 'Второй обычный этап перед первым бонусом.' },
-  { id: 'extra1', type: 'extra', label: 'Экстра после 2', shortLabel: 'EX1', description: 'Экстра-этап. Стиль ярче и дороже, наполнение настраивается отдельно.' },
+  { id: 'extra1', type: 'extra', label: 'Экстра после 2', shortLabel: 'EX1', description: 'Экстра-этап с отдельным наполнением и более ярким визуалом.' },
   { id: 'round3', type: 'regular', label: 'Раунд 3', shortLabel: 'R3', description: 'Третий основной этап.' },
   { id: 'round4', type: 'regular', label: 'Раунд 4', shortLabel: 'R4', description: 'Четвёртый основной этап.' },
   { id: 'round5', type: 'regular', label: 'Раунд 5', shortLabel: 'R5', description: 'Финальный основной этап перед последним бонусом.' },
@@ -20,24 +19,52 @@ const rarityLabelMap = {
   rare: 'Золотая',
 };
 
+const effectLabelMap = {
+  empty: 'Пустой вкус',
+  plus: 'Плюс одно очко',
+  auto: 'Авто плюс 1 — плюс одно очко',
+  bomb: 'Бомба — сброс всех очков',
+};
+
 function defaultImage(seed) {
   const safe = encodeURIComponent(seed);
   return `https://placehold.co/600x600/101826/EAF1FF?text=${safe}`;
 }
 
+function inferEffectFromName(name = '') {
+  const lower = String(name).trim().toLowerCase();
+  if (lower.includes('бомб')) return 'bomb';
+  if (lower.includes('авто') || lower.includes('галоч') || lower.includes('check')) return 'auto';
+  return 'empty';
+}
+
+function normalizeEffect(effect, name = '') {
+  const allowed = ['empty', 'plus', 'auto', 'bomb'];
+  if (allowed.includes(effect)) return effect;
+  return inferEffectFromName(name);
+}
+
+function makeItemId() {
+  return `item_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function itemSignature(item) {
+  return [item.name, item.image, item.rarity, item.effect].join('__');
+}
+
 function makeDefaultItems(stageType) {
   if (stageType === 'extra') {
     return [
-      { name: 'Манго Экстра', image: defaultImage('Extra Mango'), weight: 5, rarity: 'rare' },
-      { name: 'Арбуз Экстра', image: defaultImage('Extra Watermelon'), weight: 4, rarity: 'classified' },
-      { name: 'Галочка', image: defaultImage('Check'), weight: 2, rarity: 'rare' },
+      { id: makeItemId(), name: 'Манго Экстра', image: defaultImage('Extra Mango'), weight: 5, rarity: 'rare', effect: 'plus' },
+      { id: makeItemId(), name: 'Арбуз Экстра', image: defaultImage('Extra Watermelon'), weight: 4, rarity: 'classified', effect: 'empty' },
+      { id: makeItemId(), name: 'Авто плюс 1', image: defaultImage('Auto Plus 1'), weight: 2, rarity: 'rare', effect: 'auto' },
     ];
   }
   return [
-    { name: 'Манго', image: defaultImage('Mango'), weight: 5, rarity: 'industrial' },
-    { name: 'Клубника', image: defaultImage('Strawberry'), weight: 4, rarity: 'mil-spec' },
-    { name: 'Галочка', image: defaultImage('Check'), weight: 2, rarity: 'restricted' },
-    { name: 'Бомба', image: defaultImage('Bomb'), weight: 1, rarity: 'covert' },
+    { id: makeItemId(), name: 'Манго', image: defaultImage('Mango'), weight: 5, rarity: 'industrial', effect: 'empty' },
+    { id: makeItemId(), name: 'Клубника', image: defaultImage('Strawberry'), weight: 4, rarity: 'mil-spec', effect: 'empty' },
+    { id: makeItemId(), name: 'Авто плюс 1', image: defaultImage('Auto Plus 1'), weight: 2, rarity: 'restricted', effect: 'auto' },
+    { id: makeItemId(), name: 'Бомба', image: defaultImage('Bomb'), weight: 1, rarity: 'covert', effect: 'bomb' },
   ];
 }
 
@@ -49,6 +76,7 @@ function makeStage(stageDef) {
     label: stageDef.label,
     shortLabel: stageDef.shortLabel,
     description: stageDef.description,
+    forcedNextItemSignature: '',
     cases: Array.from({ length: 16 }, (_, index) => ({
       id: index + 1,
       name: `Кейс ${String(index + 1).padStart(2, '0')}`,
@@ -71,11 +99,14 @@ function normalizeRarity(rarity) {
 }
 
 function normalizeItem(rawItem, index) {
+  const name = String(rawItem?.name || `Предмет ${index + 1}`);
   return {
-    name: String(rawItem?.name || `Предмет ${index + 1}`),
+    id: String(rawItem?.id || makeItemId()),
+    name,
     image: String(rawItem?.image || defaultImage(`Item ${index + 1}`)),
     weight: Math.max(1, Number(rawItem?.weight) || 1),
     rarity: normalizeRarity(rawItem?.rarity),
+    effect: normalizeEffect(rawItem?.effect, name),
   };
 }
 
@@ -103,6 +134,7 @@ function normalizeStage(rawStage, stageDef) {
     label: rawStage?.label || stageDef.label,
     shortLabel: rawStage?.shortLabel || stageDef.shortLabel,
     description: rawStage?.description || stageDef.description,
+    forcedNextItemSignature: String(rawStage?.forcedNextItemSignature || ''),
     cases: normalizedCases,
   };
 }
@@ -164,6 +196,7 @@ const regularTabBtn = document.getElementById('regularTabBtn');
 const extraTabBtn = document.getElementById('extraTabBtn');
 const stageSelector = document.getElementById('stageSelector');
 const caseSelector = document.getElementById('caseSelector');
+const forcePickSelector = document.getElementById('forcePickSelector');
 const addItemBtn = document.getElementById('addItemBtn');
 const copyToAllBtn = document.getElementById('copyToAllBtn');
 const copyStageTypeBtn = document.getElementById('copyStageTypeBtn');
@@ -218,18 +251,34 @@ function bindEvents() {
     renderItemsEditor();
   });
 
+  forcePickSelector.addEventListener('change', (event) => {
+    const stage = getStageById(selectedStageId);
+    stage.forcedNextItemSignature = String(event.target.value || '');
+    saveState();
+  });
+
   addItemBtn.addEventListener('click', () => {
     const targetCase = getSelectedAdminCase();
-    targetCase.items.push({
+    const newItem = {
+      id: makeItemId(),
       name: 'Новый предмет',
       image: defaultImage('New Item'),
       weight: 1,
       rarity: 'consumer',
-    });
+      effect: 'empty',
+    };
+    targetCase.items.push(newItem);
     saveState();
     renderItemsEditor();
-    renderPoolPreview();
-    renderCasesGrid();
+    if (selectedStageId === appState.currentStageId) {
+      renderPoolPreview();
+      renderCasesGrid();
+    }
+    renderForcePickSelector();
+    requestAnimationFrame(() => {
+      const lastInput = itemsEditor.querySelector('.editor-item:last-child input[data-field="name"]');
+      if (lastInput) lastInput.focus();
+    });
   });
 
   copyToAllBtn.addEventListener('click', () => {
@@ -240,9 +289,12 @@ function bindEvents() {
       caseData.items = structuredClone(cloneItems);
     });
     saveState();
-    renderPoolPreview();
-    renderCasesGrid();
     renderItemsEditor();
+    renderForcePickSelector();
+    if (selectedStageId === appState.currentStageId) {
+      renderPoolPreview();
+      renderCasesGrid();
+    }
     alert('Содержимое выбранного кейса скопировано во все 16 кейсов этого этапа.');
   });
 
@@ -258,9 +310,12 @@ function bindEvents() {
       targetStage.cases = structuredClone(stageSnapshot);
     });
     saveState();
-    renderPoolPreview();
-    renderCasesGrid();
     renderItemsEditor();
+    renderForcePickSelector();
+    if (selectedStageId === appState.currentStageId) {
+      renderPoolPreview();
+      renderCasesGrid();
+    }
     alert(`Наполнение этапа «${stage.label}» скопировано во все этапы типа «${stage.type === 'extra' ? 'экстра' : 'обычный'}».`);
   });
 
@@ -313,6 +368,18 @@ function getStageById(stageId) {
 function getSelectedAdminCase() {
   const stage = getStageById(selectedStageId);
   return stage.cases.find((caseData) => caseData.id === selectedCaseId);
+}
+
+function getStagePreviewItems(stage) {
+  const unique = new Map();
+  stage.cases.forEach((caseData) => {
+    caseData.items.forEach((item, index) => {
+      const normalized = normalizeItem(item, index);
+      const signature = itemSignature(normalized);
+      if (!unique.has(signature)) unique.set(signature, normalized);
+    });
+  });
+  return Array.from(unique.values());
 }
 
 function ensureStageOpenMap(stageId) {
@@ -374,31 +441,23 @@ function renderStageStrip() {
 function renderPoolPreview() {
   poolPreview.innerHTML = '';
   const stage = getCurrentStage();
-  const unique = new Map();
-  stage.cases.forEach((caseData) => {
-    caseData.items.forEach((item) => {
-      const key = `${item.name}__${item.image}__${item.rarity}`;
-      if (!unique.has(key)) unique.set(key, normalizeItem(item, 0));
-    });
-  });
-  const items = Array.from(unique.values());
+  const items = getStagePreviewItems(stage);
 
-  poolNote.textContent = stage.type === 'extra'
-    ? 'Сейчас активен экстра-этап. Наполнение задаётся отдельно от обычных раундов.'
-    : 'Показываются все предметы, которые ты настроил для текущего обычного этапа.';
+  poolNote.textContent = 'Для получения промика нужно собрать 2 очка в течение одного раунда.';
 
   items.forEach((item) => {
-    const pill = document.createElement('div');
-    pill.className = 'pool-pill';
-    pill.innerHTML = `
+    const card = document.createElement('div');
+    card.className = `pool-pill rarity-${normalizeRarity(item.rarity)}`;
+    card.innerHTML = `
       <div class="pool-thumb"></div>
       <div class="pool-info">
         <strong>${escapeHtml(item.name)}</strong>
-        <span>${escapeHtml(rarityLabelMap[item.rarity] || item.rarity)}</span>
+        <span class="pool-effect">${escapeHtml(effectLabelMap[item.effect])}</span>
+        <span class="pool-rarity">${escapeHtml(rarityLabelMap[item.rarity] || item.rarity)}</span>
       </div>
     `;
-    setArtBackground(pill.querySelector('.pool-thumb'), item.image);
-    poolPreview.appendChild(pill);
+    setArtBackground(card.querySelector('.pool-thumb'), item.image);
+    poolPreview.appendChild(card);
   });
 }
 
@@ -466,17 +525,51 @@ function renderAdmin() {
     caseSelector.appendChild(option);
   });
 
+  renderForcePickSelector();
   renderItemsEditor();
+}
+
+function renderForcePickSelector() {
+  const stage = getStageById(selectedStageId);
+  const items = getStagePreviewItems(stage);
+  forcePickSelector.innerHTML = '';
+
+  const autoOption = document.createElement('option');
+  autoOption.value = '';
+  autoOption.textContent = 'Случайно по шансам';
+  forcePickSelector.appendChild(autoOption);
+
+  items.forEach((item) => {
+    const option = document.createElement('option');
+    option.value = itemSignature(item);
+    option.textContent = `${item.name} — ${effectLabelMap[item.effect]}`;
+    forcePickSelector.appendChild(option);
+  });
+
+  forcePickSelector.value = stage.forcedNextItemSignature || '';
 }
 
 function renderItemsEditor() {
   itemsEditor.innerHTML = '';
   const currentCase = getSelectedAdminCase();
+
+  if (!currentCase.items.length) {
+    currentCase.items.push({
+      id: makeItemId(),
+      name: 'Новый предмет',
+      image: defaultImage('New Item'),
+      weight: 1,
+      rarity: 'consumer',
+      effect: 'empty',
+    });
+  }
+
   currentCase.items.forEach((item, index) => {
     const template = document.getElementById('editorItemTemplate');
     const node = template.content.firstElementChild.cloneNode(true);
     const preview = node.querySelector('.preview-thumb');
     const previewText = node.querySelector('.preview-text');
+    const previewEffect = node.querySelector('.preview-effect');
 
     node.querySelectorAll('[data-field]').forEach((field) => {
       const fieldName = field.dataset.field;
@@ -490,6 +583,7 @@ function renderItemsEditor() {
             currentCase.items[index].image = dataUrl;
             setArtBackground(preview, dataUrl);
             saveState();
+            renderForcePickSelector();
             if (selectedStageId === appState.currentStageId) renderPoolPreview();
           } catch {
             alert('Не удалось прочитать файл. Попробуй другой JPG/JPEG/PNG/WebP.');
@@ -507,10 +601,13 @@ function renderItemsEditor() {
           event.target.value = value;
         }
         if (fieldName === 'rarity') value = normalizeRarity(value);
+        if (fieldName === 'effect') value = normalizeEffect(value, currentCase.items[index].name);
         currentCase.items[index][fieldName] = value;
         if (fieldName === 'image') setArtBackground(preview, value);
         if (fieldName === 'name') previewText.textContent = value || 'Фон предмета';
+        if (fieldName === 'effect') previewEffect.textContent = effectLabelMap[value];
         saveState();
+        renderForcePickSelector();
         if (selectedStageId === appState.currentStageId) {
           renderPoolPreview();
           renderCasesGrid();
@@ -520,23 +617,27 @@ function renderItemsEditor() {
 
     setArtBackground(preview, item.image);
     previewText.textContent = item.name || 'Фон предмета';
+    previewEffect.textContent = effectLabelMap[item.effect];
 
     node.querySelector('.remove-item-btn').addEventListener('click', () => {
       currentCase.items.splice(index, 1);
       if (!currentCase.items.length) {
         currentCase.items.push({
-          name: 'Пустой слот',
-          image: defaultImage('Empty Slot'),
+          id: makeItemId(),
+          name: 'Новый предмет',
+          image: defaultImage('New Item'),
           weight: 1,
           rarity: 'consumer',
+          effect: 'empty',
         });
       }
       saveState();
+      renderItemsEditor();
+      renderForcePickSelector();
       if (selectedStageId === appState.currentStageId) {
         renderPoolPreview();
         renderCasesGrid();
       }
-      renderItemsEditor();
     });
 
     itemsEditor.appendChild(node);
@@ -610,6 +711,20 @@ function closeRouletteModal() {
   rouletteModal.setAttribute('aria-hidden', 'true');
 }
 
+function resolveWinningItem(stage, caseData) {
+  const forcedSignature = stage.forcedNextItemSignature;
+  if (forcedSignature) {
+    const exact = caseData.items.find((item, index) => itemSignature(normalizeItem(item, index)) === forcedSignature);
+    if (exact) {
+      stage.forcedNextItemSignature = '';
+      saveState();
+      renderForcePickSelector();
+      return normalizeItem(exact, 0);
+    }
+  }
+  return pickWeighted(caseData.items);
+}
+
 function openCase(stageId, caseId) {
   const stage = getStageById(stageId);
   const caseData = stage.cases.find((entry) => entry.id === caseId);
@@ -635,7 +750,7 @@ function showOpenedCase(stage, caseData, item) {
 }
 
 function runSpin(stage, caseData) {
-  const winningItem = pickWeighted(caseData.items);
+  const winningItem = resolveWinningItem(stage, caseData);
   rouletteTrack.innerHTML = '';
   rouletteTrack.style.transition = 'none';
   rouletteTrack.style.transform = 'translateX(0px)';
@@ -680,6 +795,7 @@ function showResult(item, alreadyOpened) {
       <div class="result-copy">
         <div class="item-rarity large">${alreadyOpened ? 'Этот предмет уже выпал из кейса на текущем этапе' : 'Выпал предмет'}</div>
         <h3>${escapeHtml(item.name)}</h3>
+        <p class="item-rarity large">${escapeHtml(effectLabelMap[item.effect])}</p>
         <p class="item-rarity large">Редкость: ${escapeHtml(rarityLabelMap[normalizeRarity(item.rarity)] || item.rarity)}</p>
       </div>
     </div>
@@ -688,14 +804,15 @@ function showResult(item, alreadyOpened) {
 }
 
 function createRouletteCard(item) {
+  const normalized = normalizeItem(item, 0);
   const node = document.createElement('div');
-  node.className = `roulette-item rarity-${normalizeRarity(item.rarity)}`;
+  node.className = `roulette-item rarity-${normalizeRarity(normalized.rarity)}`;
   node.innerHTML = `
     <div class="item-art"></div>
-    <div class="item-name">${escapeHtml(item.name)}</div>
-    <div class="item-rarity">${escapeHtml(rarityLabelMap[normalizeRarity(item.rarity)] || item.rarity)}</div>
+    <div class="item-name">${escapeHtml(normalized.name)}</div>
+    <div class="item-rarity">${escapeHtml(effectLabelMap[normalized.effect])}</div>
   `;
-  setArtBackground(node.querySelector('.item-art'), item.image);
+  setArtBackground(node.querySelector('.item-art'), normalized.image);
   return node;
 }
 

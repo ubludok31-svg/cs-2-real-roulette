@@ -20,7 +20,7 @@
       <div>
         <div class="eyebrow">Панель для стрима</div>
         <h1>Case Game</h1>
-        <p class="subtitle">4×4 кейса, 5 основных раундов и 2 экстра-этапа. Бомбы и галочки добавляются как обычные предметы со своей картинкой и шансом.</p>
+        <p class="subtitle">Настрой раунды в админке, а на основном экране показывай зрителям только этапы, кейсы и то, что может выпасть.</p>
       </div>
       <div class="topbar-actions">
         <button id="openAdminBtn" class="ghost-btn">Админ-панель</button>
@@ -52,8 +52,8 @@
     <section class="viewer-panel">
       <div class="viewer-panel-head">
         <div>
-          <h3>Предметы текущего этапа</h3>
-          <p id="poolNote">Показываются все предметы, которые ты настроил для этого этапа.</p>
+          <h3>Что может выпасть в этом раунде?</h3>
+          <p id="poolNote">Для получения промика нужно собрать 2 очка в течение одного раунда.</p>
         </div>
       </div>
       <div id="poolPreview" class="pool-preview"></div>
@@ -63,7 +63,7 @@
       <div class="section-head compact-head">
         <div>
           <h3>Кейсы</h3>
-          <p>Открытые кейсы остаются открытыми в текущем этапе. При переходе на другой этап открывается новое поле.</p>
+          <p>Открытые кейсы остаются открытыми до обновления страницы. После обновления страницы снова закрываются только кейсы, а настройки админки остаются сохранёнными.</p>
         </div>
       </div>
       <div id="casesGrid" class="cases-grid"></div>
@@ -99,7 +99,7 @@
       <div class="modal-header admin-header">
         <div>
           <h3>Админ-панель</h3>
-          <p id="adminHint">Отдельно настраиваются обычные раунды и экстра-этапы. На основном экране видны только раунды, кейсы и предметы.</p>
+          <p id="adminHint">Здесь сохраняется всё наполнение этапов. После обновления страницы сбрасываются только открытые кейсы, а не настройки.</p>
         </div>
         <div class="modal-header-actions">
           <button id="importConfigBtn" class="ghost-btn">Импорт config.json</button>
@@ -123,6 +123,10 @@
             Кейс:
             <select id="caseSelector"></select>
           </label>
+          <label class="force-pick-wrap">
+            Следующее выпадение:
+            <select id="forcePickSelector"></select>
+          </label>
           <button id="addItemBtn">Добавить предмет</button>
           <button id="copyToAllBtn" class="ghost-btn">Кейс → во все кейсы этапа</button>
           <button id="copyStageTypeBtn" class="ghost-btn">Этап → во все этапы этого типа</button>
@@ -131,7 +135,7 @@
         </div>
 
         <div class="admin-note">
-          Веса, картинки и редкости настраиваются здесь. Бомбу, галочку и любые спец-иконки добавляй как обычные предметы с собственной картинкой.
+          Выбери предмет в поле «Следующее выпадение», если хочешь вручную задать, что выпадет в следующем открытии. После одного открытия принудительный выбор автоматически сбрасывается обратно на случайный режим.
         </div>
 
         <div id="itemsEditor" class="items-editor"></div>
@@ -189,11 +193,23 @@
             <option value="rare">Золотая</option>
           </select>
         </label>
+        <label>
+          Подпись для зрителей
+          <select data-field="effect">
+            <option value="empty">Пустой вкус</option>
+            <option value="plus">Плюс одно очко</option>
+            <option value="auto">Авто плюс 1 — плюс одно очко</option>
+            <option value="bomb">Бомба — сброс всех очков</option>
+          </select>
+        </label>
       </div>
       <div class="editor-item-footer">
         <div class="editor-preview">
           <div class="preview-thumb"></div>
-          <div class="preview-text">Фон предмета</div>
+          <div class="preview-copy">
+            <div class="preview-text">Фон предмета</div>
+            <div class="preview-effect"></div>
+          </div>
         </div>
         <button class="ghost-btn danger remove-item-btn" type="button">Удалить</button>
       </div>
