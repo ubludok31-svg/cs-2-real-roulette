@@ -1,26 +1,37 @@
-const STORAGE_KEY = 'caseRouletteConfigV1';
+const STORAGE_KEY = 'caseRouletteConfigV2';
+const LEGACY_STORAGE_KEY = 'caseRouletteConfigV1';
 const TOTAL_CASES = 16;
 
 function makeSvgPlaceholder(text, bg = '#1b2434', accent = '#ffb347') {
   const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+    <svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
       <defs>
         <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" stop-color="${bg}" />
           <stop offset="100%" stop-color="#0e1624" />
         </linearGradient>
       </defs>
-      <rect width="400" height="300" rx="24" fill="url(#g)"/>
-      <rect x="20" y="20" width="360" height="260" rx="18" fill="none" stroke="rgba(255,255,255,0.12)"/>
-      <circle cx="320" cy="68" r="26" fill="${accent}" opacity="0.22"/>
-      <text x="200" y="150" text-anchor="middle" dominant-baseline="middle" fill="#ecf2ff" font-family="Arial, sans-serif" font-size="30" font-weight="700">${text}</text>
-      <text x="200" y="190" text-anchor="middle" dominant-baseline="middle" fill="#9fb0d1" font-family="Arial, sans-serif" font-size="16">Case Item</text>
+      <rect width="800" height="600" fill="url(#g)" />
+      <rect x="40" y="40" width="720" height="520" rx="36" fill="none" stroke="${accent}" stroke-opacity="0.35" stroke-width="8" />
+      <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="54" fill="#ffffff">${text}</text>
     </svg>
   `;
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-const defaultImage = (text) => makeSvgPlaceholder(text);
+function defaultImage(text) {
+  return makeSvgPlaceholder(text);
+}
+
+const rarityLabelMap = {
+  consumer: 'Белая',
+  industrial: 'Голубая',
+  'mil-spec': 'Синяя',
+  restricted: 'Фиолетовая',
+  classified: 'Розовая',
+  covert: 'Красная',
+  rare: 'Золотая',
+};
 
 const defaultItems = [
   { name: 'Blue Steel', image: 'assets/demo-blue.svg', weight: 45, rarity: 'mil-spec' },
@@ -29,17 +40,56 @@ const defaultItems = [
   { name: 'Golden Relic', image: 'assets/demo-gold.svg', weight: 7, rarity: 'rare' },
 ];
 
-const makeInitialConfig = () => ({
-  cases: Array.from({ length: TOTAL_CASES }, (_, i) => ({
-    id: i + 1,
-    name: `Кейс ${String(i + 1).padStart(2, '0')}`,
-    items: structuredClone(defaultItems),
-  })),
-});
+function makeInitialConfig() {
+  return {
+    cases: Array.from({ length: TOTAL_CASES }, (_, index) => ({
+      id: index + 1,
+      name: `Кейс ${String(index + 1).padStart(2, '0')}`,
+      opened: false,
+      lastWon: null,
+      items: structuredClone(defaultItems),
+    })),
+  };
+}
+
+function normalizeItem(item, fallbackIndex = 0) {
+  return {
+    name: item?.name || `Предмет ${fallbackIndex + 1}`,
+    image: item?.image || defaultImage(`Item ${fallbackIndex + 1}`),
+    weight: Math.max(1, Number(item?.weight) || 1),
+    rarity: normalizeRarity(item?.rarity),
+  };
+}
+
+function normalizeCase(rawCase, fallbackId) {
+  const fallbackName = `Кейс ${String(fallbackId).padStart(2, '0')}`;
+  const rawItems = Array.isArray(rawCase?.items) && rawCase.items.length ? rawCase.items : structuredClone(defaultItems);
+
+  return {
+    id: Number(rawCase?.id) || fallbackId,
+    name: rawCase?.name || fallbackName,
+    opened: Boolean(rawCase?.opened),
+    lastWon: rawCase?.lastWon ? normalizeItem(rawCase.lastWon, 0) : null,
+    items: rawItems.map((item, index) => normalizeItem(item, index)),
+  };
+}
+
+function normalizeAppState(rawState) {
+  const base = makeInitialConfig();
+  const sourceCases = Array.isArray(rawState?.cases) ? rawState.cases : [];
+
+  base.cases = base.cases.map((fallbackCase, index) => {
+    const found = sourceCases.find((item) => Number(item?.id) === fallbackCase.id) || sourceCases[index];
+    return normalizeCase(found || fallbackCase, index + 1);
+  });
+
+  return base;
+}
 
 let appState = loadConfig();
 let selectedCaseId = 1;
 let currentSpinCaseId = 1;
+let isSpinning = false;
 
 const casesGrid = document.getElementById('casesGrid');
 const caseSelector = document.getElementById('caseSelector');
@@ -47,15 +97,21 @@ const itemsEditor = document.getElementById('itemsEditor');
 const addItemBtn = document.getElementById('addItemBtn');
 const saveConfigBtn = document.getElementById('saveConfigBtn');
 const resetBtn = document.getElementById('resetBtn');
+const resetOpenedBtn = document.getElementById('resetOpenedBtn');
 const importConfigBtn = document.getElementById('importConfigBtn');
 const configInput = document.getElementById('configInput');
 const rouletteModal = document.getElementById('rouletteModal');
 const closeModalBtn = document.getElementById('closeModalBtn');
-const closeModalBackdrop = document.getElementById('closeModalBackdrop');
+const closeRouletteBackdrop = document.getElementById('closeRouletteBackdrop');
 const rouletteTrack = document.getElementById('rouletteTrack');
 const resultCard = document.getElementById('resultCard');
 const modalTitle = document.getElementById('modalTitle');
-const spinAgainBtn = document.getElementById('spinAgainBtn');
+const modalHint = document.getElementById('modalHint');
+const resultCloseBtn = document.getElementById('resultCloseBtn');
+const openAdminBtn = document.getElementById('openAdminBtn');
+const adminModal = document.getElementById('adminModal');
+const closeAdminBtn = document.getElementById('closeAdminBtn');
+const closeAdminBackdrop = document.getElementById('closeAdminBackdrop');
 
 init();
 
@@ -85,8 +141,17 @@ function bindEvents() {
 
   saveConfigBtn.addEventListener('click', downloadConfig);
 
+  resetOpenedBtn.addEventListener('click', () => {
+    if (!confirm('Сделать все кейсы снова закрытыми?')) return;
+    appState.cases.forEach((caseData) => {
+      caseData.opened = false;
+      caseData.lastWon = null;
+    });
+    persistAndRender();
+  });
+
   resetBtn.addEventListener('click', () => {
-    if (!confirm('Сбросить все кейсы к дефолтному состоянию?')) return;
+    if (!confirm('Сбросить все кейсы и предметы к дефолтному состоянию?')) return;
     appState = makeInitialConfig();
     selectedCaseId = 1;
     persistAndRender();
@@ -95,9 +160,34 @@ function bindEvents() {
   importConfigBtn.addEventListener('click', () => configInput.click());
   configInput.addEventListener('change', importConfig);
 
-  closeModalBtn.addEventListener('click', closeModal);
-  closeModalBackdrop.addEventListener('click', closeModal);
-  spinAgainBtn.addEventListener('click', () => openCase(currentSpinCaseId));
+  openAdminBtn.addEventListener('click', openAdminModal);
+  closeAdminBtn.addEventListener('click', closeAdminModal);
+  closeAdminBackdrop.addEventListener('click', closeAdminModal);
+
+  closeModalBtn.addEventListener('click', closeRouletteModal);
+  closeRouletteBackdrop.addEventListener('click', closeRouletteModal);
+  resultCloseBtn.addEventListener('click', closeRouletteModal);
+}
+
+function openAdminModal() {
+  adminModal.classList.remove('hidden');
+  adminModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeAdminModal() {
+  adminModal.classList.add('hidden');
+  adminModal.setAttribute('aria-hidden', 'true');
+}
+
+function openRouletteModal() {
+  rouletteModal.classList.remove('hidden');
+  rouletteModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeRouletteModal() {
+  if (isSpinning) return;
+  rouletteModal.classList.add('hidden');
+  rouletteModal.setAttribute('aria-hidden', 'true');
 }
 
 function renderCaseSelector() {
@@ -117,9 +207,30 @@ function renderCasesGrid() {
 
   appState.cases.forEach((caseData) => {
     const node = template.content.firstElementChild.cloneNode(true);
+    const badge = node.querySelector('.case-badge');
+    const meta = node.querySelector('.case-meta');
+
     node.querySelector('.case-name').textContent = caseData.name;
-    node.querySelector('.case-count').textContent = `${caseData.items.length} предметов`;
-    node.addEventListener('click', () => openCase(caseData.id));
+
+    if (caseData.opened) {
+      node.classList.add('is-opened');
+      badge.textContent = 'ОТКРЫТ';
+      meta.innerHTML = caseData.lastWon
+        ? `Выпал предмет:<br><strong>${escapeHtml(caseData.lastWon.name)}</strong>`
+        : 'Кейс уже открыт';
+    } else {
+      badge.textContent = 'ЗАКРЫТ';
+      meta.textContent = `${caseData.items.length} предметов внутри`;
+    }
+
+    node.addEventListener('click', () => {
+      if (caseData.opened) {
+        showOpenedCase(caseData);
+        return;
+      }
+      openCase(caseData.id);
+    });
+
     casesGrid.appendChild(node);
   });
 }
@@ -132,18 +243,40 @@ function renderEditor() {
     const template = document.getElementById('editorItemTemplate');
     const node = template.content.firstElementChild.cloneNode(true);
 
-    const fields = node.querySelectorAll('[data-field]');
-    fields.forEach((field) => {
+    node.querySelectorAll('[data-field]').forEach((field) => {
       const key = field.dataset.field;
+      if (key === 'file') {
+        field.addEventListener('change', async (event) => {
+          const file = event.target.files?.[0];
+          if (!file) return;
+
+          try {
+            const dataUrl = await fileToDataUrl(file);
+            currentCase.items[index].image = dataUrl;
+            saveConfig();
+            renderEditor();
+            renderCasesGrid();
+          } catch {
+            alert('Не удалось прочитать файл. Попробуй другой JPG/JPEG.');
+          }
+        });
+        return;
+      }
+
       field.value = item[key];
       field.addEventListener('input', (event) => {
         let value = event.target.value;
         if (key === 'weight') value = Math.max(1, Number(value) || 1);
+        if (key === 'rarity') value = normalizeRarity(value);
         currentCase.items[index][key] = value;
         saveConfig();
+        renderEditor();
         renderCasesGrid();
       });
     });
+
+    const preview = node.querySelector('.preview-thumb');
+    setArtBackground(preview, item.image);
 
     node.querySelector('.remove-item-btn').addEventListener('click', () => {
       currentCase.items.splice(index, 1);
@@ -162,25 +295,32 @@ function renderEditor() {
   });
 }
 
-function openCase(caseId) {
-  currentSpinCaseId = caseId;
-  const caseData = getCaseById(caseId);
-  modalTitle.textContent = `${caseData.name} — открытие`;
-  rouletteModal.classList.remove('hidden');
-  rouletteModal.setAttribute('aria-hidden', 'false');
-  resultCard.classList.add('hidden');
-  runSpin(caseData);
+function showOpenedCase(caseData) {
+  openRouletteModal();
+  rouletteTrack.innerHTML = '';
+  rouletteTrack.style.transition = 'none';
+  rouletteTrack.style.transform = 'translateX(0px)';
+  modalTitle.textContent = `${caseData.name} — уже открыт`;
+  modalHint.textContent = 'Этот кейс уже был открыт ранее.';
+  showResult(caseData.lastWon || normalizeItem(caseData.items[0], 0), true);
 }
 
-function closeModal() {
-  rouletteModal.classList.add('hidden');
-  rouletteModal.setAttribute('aria-hidden', 'true');
+function openCase(caseId) {
+  const caseData = getCaseById(caseId);
+  currentSpinCaseId = caseId;
+  modalTitle.textContent = `${caseData.name} — открытие`;
+  modalHint.textContent = 'Предмет выбирается случайно из наполнения этого кейса.';
+  resultCard.classList.add('hidden');
+  openRouletteModal();
+  runSpin(caseData);
 }
 
 function runSpin(caseData) {
   rouletteTrack.innerHTML = '';
   rouletteTrack.style.transition = 'none';
   rouletteTrack.style.transform = 'translateX(0px)';
+  resultCard.classList.add('hidden');
+  isSpinning = true;
 
   const winningItem = pickWeighted(caseData.items);
   const trackItems = [];
@@ -210,40 +350,57 @@ function runSpin(caseData) {
   });
 
   window.clearTimeout(runSpin.timeoutId);
-  runSpin.timeoutId = window.setTimeout(() => showResult(winningItem), 5900);
+  runSpin.timeoutId = window.setTimeout(() => {
+    markCaseOpened(currentSpinCaseId, winningItem);
+    isSpinning = false;
+    showResult(winningItem, false);
+  }, 5900);
 }
 
-function showResult(item) {
+function showResult(item, alreadyOpened) {
   resultCard.classList.remove('hidden');
   resultCard.innerHTML = `
     <div class="result-card-inner">
-      <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" onerror="this.src='${defaultImage('No Image')}'" />
+      <div class="result-art"></div>
       <div>
-        <div class="item-rarity">Выпал предмет</div>
+        <div class="item-rarity">${alreadyOpened ? 'Этот предмет уже был получен' : 'Выпал предмет'}</div>
         <h3>${escapeHtml(item.name)}</h3>
-        <p class="item-rarity">Редкость: ${escapeHtml(item.rarity)}</p>
-        <p class="subtitle">Вес в конфиге: ${Number(item.weight) || 1}</p>
+        <p class="item-rarity">Редкость: ${escapeHtml(rarityLabelMap[normalizeRarity(item.rarity)] || item.rarity)}</p>
       </div>
     </div>
   `;
+
+  const art = resultCard.querySelector('.result-art');
+  setArtBackground(art, item.image);
 }
 
 function createRouletteCard(item) {
   const card = document.createElement('div');
   card.className = `roulette-item rarity-${normalizeRarity(item.rarity)}`;
   card.innerHTML = `
-    <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" onerror="this.src='${defaultImage('No Image')}'" />
+    <div class="item-art"></div>
     <div class="item-name">${escapeHtml(item.name)}</div>
-    <div class="item-rarity">${escapeHtml(item.rarity)}</div>
+    <div class="item-rarity">${escapeHtml(rarityLabelMap[normalizeRarity(item.rarity)] || item.rarity)}</div>
   `;
+  setArtBackground(card.querySelector('.item-art'), item.image);
   return card;
 }
 
+function setArtBackground(element, image) {
+  const source = image || defaultImage('No Image');
+  element.style.backgroundImage = `linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.42)), url("${escapeCssUrl(source)}")`;
+}
+
+function markCaseOpened(caseId, winningItem) {
+  const caseData = getCaseById(caseId);
+  caseData.opened = true;
+  caseData.lastWon = normalizeItem(winningItem, 0);
+  saveConfig();
+  renderCasesGrid();
+}
+
 function pickWeighted(items) {
-  const expanded = items.map((item) => ({
-    ...item,
-    weight: Math.max(1, Number(item.weight) || 1),
-  }));
+  const expanded = items.map((item, index) => normalizeItem(item, index));
   const totalWeight = expanded.reduce((sum, item) => sum + item.weight, 0);
   let random = Math.random() * totalWeight;
 
@@ -263,12 +420,10 @@ function saveConfig() {
 }
 
 function loadConfig() {
-  const stored = localStorage.getItem(STORAGE_KEY);
+  const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
   if (!stored) return makeInitialConfig();
   try {
-    const parsed = JSON.parse(stored);
-    if (!parsed?.cases?.length) return makeInitialConfig();
-    return parsed;
+    return normalizeAppState(JSON.parse(stored));
   } catch {
     return makeInitialConfig();
   }
@@ -282,7 +437,8 @@ function persistAndRender() {
 }
 
 function downloadConfig() {
-  const blob = new Blob([JSON.stringify(appState, null, 2)], { type: 'application/json' });
+  const normalized = normalizeAppState(appState);
+  const blob = new Blob([JSON.stringify(normalized, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -298,9 +454,8 @@ function importConfig(event) {
   reader.onload = () => {
     try {
       const parsed = JSON.parse(reader.result);
-      if (!parsed?.cases || !Array.isArray(parsed.cases)) throw new Error('Bad format');
-      appState = parsed;
-      selectedCaseId = parsed.cases[0]?.id || 1;
+      appState = normalizeAppState(parsed);
+      selectedCaseId = appState.cases[0]?.id || 1;
       persistAndRender();
       alert('Конфиг успешно импортирован.');
     } catch {
@@ -327,4 +482,17 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
+}
+
+function escapeCssUrl(value) {
+  return String(value).replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
