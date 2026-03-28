@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#5e1d53"/><stop offset="100%" stop-color="#1d0f1e"/></linearGradient></defs>
+  <rect width="400" height="300" rx="24" fill="url(#g)"/>
+  <rect x="22" y="22" width="356" height="256" rx="18" fill="none" stroke="rgba(255,255,255,0.14)"/>
+  <text x="200" y="146" fill="#ffeaff" font-family="Arial" font-size="34" font-weight="700" text-anchor="middle">Crimson Web</text>
+  <text x="200" y="186" fill="#ff9ee2" font-family="Arial" font-size="18" text-anchor="middle">Demo Asset</text>
+</svg>

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Case Roulette</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <h1>Case Roulette</h1>
+        <p class="subtitle">Локальная рулетка в стиле открытия кейсов</p>
+      </div>
+      <div class="topbar-actions">
+        <button id="importConfigBtn" class="ghost-btn">Импорт config.json</button>
+        <input id="configInput" type="file" accept="application/json" hidden />
+      </div>
+    </header>
+
+    <main>
+      <section class="cases-section">
+        <div class="section-head">
+          <h2>Кейсы</h2>
+          <p>16 ячеек. Нажми на любой кейс, чтобы открыть его.</p>
+        </div>
+        <div id="casesGrid" class="cases-grid"></div>
+      </section>
+
+      <section class="editor-section">
+        <div class="section-head">
+          <h2>Редактор наполнения</h2>
+          <p>Выбери кейс и задай, какие предметы в нем крутятся.</p>
+        </div>
+
+        <div class="editor-toolbar">
+          <label>
+            Кейс:
+            <select id="caseSelector"></select>
+          </label>
+          <button id="addItemBtn">Добавить предмет</button>
+          <button id="saveConfigBtn" class="ghost-btn">Скачать config.json</button>
+          <button id="resetBtn" class="ghost-btn danger">Сбросить всё</button>
+        </div>
+
+        <div id="itemsEditor" class="items-editor"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="rouletteModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" id="closeModalBackdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalTitle">Открытие кейса</h3>
+          <p id="modalHint">Рандом определяется из заданного тобой списка предметов.</p>
+        </div>
+        <button id="closeModalBtn" class="icon-btn">✕</button>
+      </div>
+
+      <div class="roulette-wrapper">
+        <div class="roulette-pointer"></div>
+        <div id="rouletteTrack" class="roulette-track"></div>
+      </div>
+
+      <div id="resultCard" class="result-card hidden"></div>
+      <div class="modal-actions">
+        <button id="spinAgainBtn">Крутить ещё раз</button>
+      </div>
+    </div>
+  </div>
+
+  <template id="caseCardTemplate">
+    <button class="case-card">
+      <div class="case-badge">CASE</div>
+      <div class="case-name"></div>
+      <div class="case-count"></div>
+    </button>
+  </template>
+
+  <template id="editorItemTemplate">
+    <div class="editor-item">
+      <div class="editor-item-grid">
+        <label>
+          Название
+          <input data-field="name" type="text" placeholder="Например: Dragon Lore" />
+        </label>
+        <label>
+          URL картинки
+          <input data-field="image" type="text" placeholder="https://..." />
+        </label>
+        <label>
+          Шанс / вес
+          <input data-field="weight" type="number" min="1" step="1" value="1" />
+        </label>
+        <label>
+          Редкость
+          <select data-field="rarity">
+            <option value="consumer">Белая</option>
+            <option value="industrial">Голубая</option>
+            <option value="mil-spec">Синяя</option>
+            <option value="restricted">Фиолетовая</option>
+            <option value="classified">Розовая</option>
+            <option value="covert">Красная</option>
+            <option value="rare">Золотая</option>
+          </select>
+        </label>
+      </div>
+      <button class="ghost-btn danger remove-item-btn">Удалить</button>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
