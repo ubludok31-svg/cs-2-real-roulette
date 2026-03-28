@@ -11,7 +11,7 @@
     <header class="topbar compact-topbar">
       <div>
         <h1>Case Roulette</h1>
-        <p class="subtitle">16 кейсов в сетке 4×4. После обновления страницы все кейсы снова становятся закрытыми.</p>
+        <p class="subtitle">16 кейсов в сетке 4×4. Открытые кейсы остаются открытыми до обновления страницы.</p>
       </div>
       <div class="topbar-actions">
         <button id="openAdminBtn" class="ghost-btn">Админ-панель</button>
@@ -23,7 +23,7 @@
       <section class="cases-section full-width compact-section">
         <div class="section-head compact-head">
           <h2>Кейсы</h2>
-          <p>Открыл кейс — он остаётся открытым до обновления страницы. После обновления страницы все кейсы снова закрыты.</p>
+          <p>После обновления страницы все кейсы снова становятся закрытыми.</p>
         </div>
         <div id="casesGrid" class="cases-grid"></div>
       </section>
@@ -59,7 +59,7 @@
       <div class="modal-header">
         <div>
           <h3>Админ-панель</h3>
-          <p id="adminHint">Настройка предметов, редкости, JPG/JPEG-фото и содержимого каждого кейса.</p>
+          <p id="adminHint">Здесь настраиваются предметы, редкость, вес и JPG/JPEG-фото.</p>
         </div>
         <button id="closeAdminBtn" class="icon-btn" aria-label="Закрыть">✕</button>
       </div>
@@ -71,7 +71,7 @@
             <select id="caseSelector"></select>
           </label>
           <button id="addItemBtn">Добавить предмет</button>
-          <button id="copyCaseToAllBtn" class="ghost-btn">Копировать содержимое во все кейсы</button>
+          <button id="copyToAllBtn" class="ghost-btn">Скопировать содержимое во все кейсы</button>
           <button id="importConfigBtn" class="ghost-btn">Импорт config.json</button>
           <button id="saveConfigBtn" class="ghost-btn">Скачать config.json</button>
           <button id="resetOpenedBtn" class="ghost-btn">Закрыть все кейсы</button>
@@ -79,7 +79,7 @@
         </div>
 
         <div class="admin-note">
-          JPG/JPEG можно загрузить прямо в админке. Открытые кейсы остаются открытыми до обновления страницы. Можно одним кликом скопировать содержимое выбранного кейса во все 16 кейсов.
+          Фото можно вставить ссылкой или загрузить JPG/JPEG/PNG/WebP прямо в браузер. Курсор при вводе больше не сбивается.
         </div>
 
         <div id="itemsEditor" class="items-editor"></div>
@@ -88,7 +88,7 @@
   </div>
 
   <template id="caseCardTemplate">
-    <button class="case-card">
+    <button class="case-card" type="button">
       <div class="case-badge"></div>
       <div class="case-visual" aria-hidden="true">
         <div class="case-glow"></div>
@@ -141,7 +141,7 @@
           <div class="preview-thumb"></div>
           <div class="preview-text">Фон предмета</div>
         </div>
-        <button class="ghost-btn danger remove-item-btn">Удалить</button>
+        <button class="ghost-btn danger remove-item-btn" type="button">Удалить</button>
       </div>
     </div>
   </template>

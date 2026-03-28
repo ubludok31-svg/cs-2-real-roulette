@@ -1,27 +1,5 @@
-const STORAGE_KEY = 'caseRouletteConfigV4';
-const LEGACY_STORAGE_KEYS = ['caseRouletteConfigV3', 'caseRouletteConfigV2', 'caseRouletteConfigV1'];
+const STORAGE_KEY = 'caseRouletteConfigV5';
 const TOTAL_CASES = 16;
-
-function makeSvgPlaceholder(text, bg = '#1b2434', accent = '#ffb347') {
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
-      <defs>
-        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="${bg}" />
-          <stop offset="100%" stop-color="#0e1624" />
-        </linearGradient>
-      </defs>
-      <rect width="800" height="600" fill="url(#g)" />
-      <rect x="40" y="40" width="720" height="520" rx="36" fill="none" stroke="${accent}" stroke-opacity="0.35" stroke-width="8" />
-      <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="54" fill="#ffffff">${text}</text>
-    </svg>
-  `;
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
-
-function defaultImage(text) {
-  return makeSvgPlaceholder(text);
-}
 
 const rarityLabelMap = {
   consumer: 'Белая',
@@ -32,6 +10,27 @@ const rarityLabelMap = {
   covert: 'Красная',
   rare: 'Золотая',
 };
+
+function makeSvgPlaceholder(text, bg = '#1b2434', accent = '#ffb347') {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="${bg}" />
+          <stop offset="100%" stop-color="#0e1624" />
+        </linearGradient>
+      </defs>
+      <rect width="400" height="300" rx="24" fill="url(#g)"/>
+      <rect x="20" y="20" width="360" height="260" rx="18" fill="none" stroke="rgba(255,255,255,0.12)"/>
+      <circle cx="320" cy="68" r="26" fill="${accent}" opacity="0.22"/>
+      <text x="200" y="150" text-anchor="middle" dominant-baseline="middle" fill="#ecf2ff" font-family="Arial, sans-serif" font-size="30" font-weight="700">${escapeXml(text)}</text>
+      <text x="200" y="190" text-anchor="middle" dominant-baseline="middle" fill="#9fb0d1" font-family="Arial, sans-serif" font-size="16">Case Item</text>
+    </svg>
+  `;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+const defaultImage = (text) => makeSvgPlaceholder(text);
 
 const defaultItems = [
   { name: 'Blue Steel', image: 'assets/demo-blue.svg', weight: 45, rarity: 'mil-spec' },
@@ -45,8 +44,6 @@ function makeInitialConfig() {
     cases: Array.from({ length: TOTAL_CASES }, (_, index) => ({
       id: index + 1,
       name: `Кейс ${String(index + 1).padStart(2, '0')}`,
-      opened: false,
-      lastWon: null,
       items: structuredClone(defaultItems),
     })),
   };
@@ -68,8 +65,6 @@ function normalizeCase(rawCase, fallbackId) {
   return {
     id: Number(rawCase?.id) || fallbackId,
     name: rawCase?.name || fallbackName,
-    opened: false,
-    lastWon: null,
     items: rawItems.map((item, index) => normalizeItem(item, index)),
   };
 }
@@ -86,28 +81,17 @@ function normalizeAppState(rawState) {
   return base;
 }
 
-function serializeConfig(state) {
-  return {
-    cases: state.cases.map((caseData, index) => ({
-      id: Number(caseData.id) || index + 1,
-      name: caseData.name || `Кейс ${String(index + 1).padStart(2, '0')}`,
-      opened: false,
-      lastWon: null,
-      items: caseData.items.map((item, itemIndex) => normalizeItem(item, itemIndex)),
-    })),
-  };
-}
-
 let appState = loadConfig();
 let selectedCaseId = 1;
 let currentSpinCaseId = 1;
 let isSpinning = false;
+const openedCases = new Map();
 
 const casesGrid = document.getElementById('casesGrid');
 const caseSelector = document.getElementById('caseSelector');
 const itemsEditor = document.getElementById('itemsEditor');
 const addItemBtn = document.getElementById('addItemBtn');
-const copyCaseToAllBtn = document.getElementById('copyCaseToAllBtn');
+const copyToAllBtn = document.getElementById('copyToAllBtn');
 const saveConfigBtn = document.getElementById('saveConfigBtn');
 const resetBtn = document.getElementById('resetBtn');
 const resetOpenedBtn = document.getElementById('resetOpenedBtn');
@@ -152,22 +136,30 @@ function bindEvents() {
     persistAndRender();
   });
 
+  copyToAllBtn.addEventListener('click', () => {
+    const sourceCase = getCaseById(selectedCaseId);
+    const cloneItems = sourceCase.items.map((item, index) => normalizeItem(item, index));
+    appState.cases.forEach((caseData) => {
+      caseData.items = structuredClone(cloneItems);
+    });
+    saveConfig();
+    renderCasesGrid();
+    renderEditor();
+    alert('Содержимое выбранного кейса скопировано во все 16 кейсов.');
+  });
+
   saveConfigBtn.addEventListener('click', downloadConfig);
 
-  copyCaseToAllBtn.addEventListener('click', copySelectedCaseToAll);
-
   resetOpenedBtn.addEventListener('click', () => {
-    if (!confirm('Сделать все кейсы снова закрытыми?')) return;
-    appState.cases.forEach((caseData) => {
-      caseData.opened = false;
-      caseData.lastWon = null;
-    });
+    openedCases.clear();
+    closeRouletteModal();
     renderCasesGrid();
   });
 
   resetBtn.addEventListener('click', () => {
     if (!confirm('Сбросить все кейсы и предметы к дефолтному состоянию?')) return;
     appState = makeInitialConfig();
+    openedCases.clear();
     selectedCaseId = 1;
     persistAndRender();
   });
@@ -224,23 +216,23 @@ function renderCasesGrid() {
     const node = template.content.firstElementChild.cloneNode(true);
     const badge = node.querySelector('.case-badge');
     const meta = node.querySelector('.case-meta');
+    const openedInfo = openedCases.get(caseData.id);
 
     node.querySelector('.case-name').textContent = caseData.name;
 
-    if (caseData.opened) {
+    if (openedInfo) {
       node.classList.add('is-opened');
       badge.textContent = 'ОТКРЫТ';
-      meta.innerHTML = caseData.lastWon
-        ? `Выпал:<br><strong>${escapeHtml(caseData.lastWon.name)}</strong>`
-        : 'Кейс уже открыт';
+      meta.innerHTML = `Выпал:<br><strong>${escapeHtml(openedInfo.name)}</strong>`;
     } else {
       badge.textContent = 'ЗАКРЫТ';
       meta.textContent = `${caseData.items.length} предметов внутри`;
     }
 
     node.addEventListener('click', () => {
-      if (caseData.opened) {
-        showOpenedCase(caseData);
+      const existingOpened = openedCases.get(caseData.id);
+      if (existingOpened) {
+        showOpenedCase(caseData, existingOpened);
         return;
       }
       openCase(caseData.id);
@@ -257,18 +249,21 @@ function renderEditor() {
   currentCase.items.forEach((item, index) => {
     const template = document.getElementById('editorItemTemplate');
     const node = template.content.firstElementChild.cloneNode(true);
+    const preview = node.querySelector('.preview-thumb');
+    const previewText = node.querySelector('.preview-text');
 
     node.querySelectorAll('[data-field]').forEach((field) => {
       const key = field.dataset.field;
+
       if (key === 'file') {
         field.addEventListener('change', async (event) => {
           const file = event.target.files?.[0];
           if (!file) return;
-
           try {
             const dataUrl = await fileToDataUrl(file);
             currentCase.items[index].image = dataUrl;
-            persistAndRender(false);
+            setArtBackground(preview, dataUrl);
+            saveConfig();
           } catch {
             alert('Не удалось прочитать файл. Попробуй другой JPG/JPEG.');
           }
@@ -277,17 +272,23 @@ function renderEditor() {
       }
 
       field.value = item[key];
-      field.addEventListener('input', (event) => {
+      const eventName = field.tagName === 'SELECT' ? 'change' : 'input';
+      field.addEventListener(eventName, (event) => {
         let value = event.target.value;
-        if (key === 'weight') value = Math.max(1, Number(value) || 1);
+        if (key === 'weight') {
+          value = Math.max(1, Number(value) || 1);
+          event.target.value = value;
+        }
         if (key === 'rarity') value = normalizeRarity(value);
         currentCase.items[index][key] = value;
-        persistAndRender(false);
+        if (key === 'image') setArtBackground(preview, value);
+        if (key === 'name') previewText.textContent = value || 'Фон предмета';
+        saveConfig();
       });
     });
 
-    const preview = node.querySelector('.preview-thumb');
     setArtBackground(preview, item.image);
+    previewText.textContent = item.name || 'Фон предмета';
 
     node.querySelector('.remove-item-btn').addEventListener('click', () => {
       currentCase.items.splice(index, 1);
@@ -299,44 +300,30 @@ function renderEditor() {
           rarity: 'consumer',
         });
       }
-      persistAndRender();
+      saveConfig();
+      renderCasesGrid();
+      renderEditor();
     });
 
     itemsEditor.appendChild(node);
   });
 }
 
-function showOpenedCase(caseData) {
+function showOpenedCase(caseData, wonItem) {
   openRouletteModal();
   rouletteTrack.innerHTML = '';
   rouletteTrack.style.transition = 'none';
   rouletteTrack.style.transform = 'translateX(0px)';
   modalTitle.textContent = `${caseData.name} — уже открыт`;
-  modalHint.textContent = 'Этот кейс уже открыт и останется открытым до обновления страницы.';
-  showResult(caseData.lastWon || normalizeItem(caseData.items[0], 0), true);
-}
-
-function copySelectedCaseToAll() {
-  const sourceCase = getCaseById(selectedCaseId);
-  if (!sourceCase) return;
-
-  if (!confirm(`Скопировать предметы из кейса "${sourceCase.name}" во все 16 кейсов?`)) return;
-
-  const clonedItems = sourceCase.items.map((item, index) => normalizeItem(structuredClone(item), index));
-
-  appState.cases.forEach((caseData) => {
-    caseData.items = clonedItems.map((item, index) => normalizeItem(structuredClone(item), index));
-  });
-
-  persistAndRender();
-  alert('Содержимое выбранного кейса скопировано во все кейсы.');
+  modalHint.textContent = 'Этот кейс останется открытым до обновления страницы.';
+  showResult(wonItem, true);
 }
 
 function openCase(caseId) {
   const caseData = getCaseById(caseId);
   currentSpinCaseId = caseId;
   modalTitle.textContent = `${caseData.name} — открытие`;
-  modalHint.textContent = 'Предмет выбирается случайно из наполнения этого кейса. Открытые кейсы держатся до обновления страницы.';
+  modalHint.textContent = 'Предмет выбирается случайно из наполнения этого кейса.';
   resultCard.classList.add('hidden');
   openRouletteModal();
   runSpin(caseData);
@@ -378,8 +365,9 @@ function runSpin(caseData) {
 
   window.clearTimeout(runSpin.timeoutId);
   runSpin.timeoutId = window.setTimeout(() => {
-    markCaseOpened(currentSpinCaseId, winningItem);
+    openedCases.set(currentSpinCaseId, normalizeItem(winningItem, 0));
     isSpinning = false;
+    renderCasesGrid();
     showResult(winningItem, false);
   }, 5900);
 }
@@ -390,7 +378,7 @@ function showResult(item, alreadyOpened) {
     <div class="result-card-inner">
       <div class="result-art"></div>
       <div>
-        <div class="item-rarity">${alreadyOpened ? 'Кейс уже был открыт' : 'Выпал предмет'}</div>
+        <div class="item-rarity">${alreadyOpened ? 'Этот предмет уже был получен из кейса' : 'Выпал предмет'}</div>
         <h3>${escapeHtml(item.name)}</h3>
         <p class="item-rarity">Редкость: ${escapeHtml(rarityLabelMap[normalizeRarity(item.rarity)] || item.rarity)}</p>
       </div>
@@ -418,13 +406,6 @@ function setArtBackground(element, image) {
   element.style.backgroundImage = `linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.42)), url("${escapeCssUrl(source)}")`;
 }
 
-function markCaseOpened(caseId, winningItem) {
-  const caseData = getCaseById(caseId);
-  caseData.opened = true;
-  caseData.lastWon = normalizeItem(winningItem, 0);
-  renderCasesGrid();
-}
-
 function pickWeighted(items) {
   const expanded = items.map((item, index) => normalizeItem(item, index));
   const totalWeight = expanded.reduce((sum, item) => sum + item.weight, 0);
@@ -442,11 +423,11 @@ function getCaseById(caseId) {
 }
 
 function saveConfig() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeConfig(appState)));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
 }
 
 function loadConfig() {
-  const stored = localStorage.getItem(STORAGE_KEY) || LEGACY_STORAGE_KEYS.map((key) => localStorage.getItem(key)).find(Boolean);
+  const stored = localStorage.getItem(STORAGE_KEY);
   if (!stored) return makeInitialConfig();
   try {
     return normalizeAppState(JSON.parse(stored));
@@ -455,15 +436,15 @@ function loadConfig() {
   }
 }
 
-function persistAndRender(full = true) {
+function persistAndRender() {
   saveConfig();
-  if (full) renderCaseSelector();
+  renderCaseSelector();
   renderCasesGrid();
   renderEditor();
 }
 
 function downloadConfig() {
-  const normalized = serializeConfig(normalizeAppState(appState));
+  const normalized = normalizeAppState(appState);
   const blob = new Blob([JSON.stringify(normalized, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -481,9 +462,10 @@ function importConfig(event) {
     try {
       const parsed = JSON.parse(reader.result);
       appState = normalizeAppState(parsed);
+      openedCases.clear();
       selectedCaseId = appState.cases[0]?.id || 1;
       persistAndRender();
-      alert('Конфиг успешно импортирован. Все кейсы стартуют закрытыми.');
+      alert('Конфиг успешно импортирован.');
     } catch {
       alert('Не удалось прочитать config.json');
     }
@@ -508,6 +490,15 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
+}
+
+function escapeXml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;');
 }
 
 function escapeCssUrl(value) {
