@@ -885,3 +885,66 @@ body.stage-extra .topbar {
     height: min(50vh, 440px);
   }
 }
+
+
+/* v9 overrides */
+.eyebrow {
+  display: none;
+}
+.topbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.hero-copy {
+  justify-items: start;
+}
+.topbar h1 {
+  max-width: 980px;
+  font-size: clamp(20px, 2.5vw, 34px);
+  line-height: 1.14;
+}
+.round-main-centered {
+  gap: 12px;
+}
+.round-title-wrap,
+.round-title-wrap-centered {
+  width: 100%;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+.round-main h2 {
+  width: 100%;
+  text-align: center;
+  font-size: clamp(38px, 5.2vw, 66px);
+  letter-spacing: 0.04em;
+}
+.round-subtitle {
+  max-width: 920px;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 700;
+}
+.round-controls {
+  width: 100%;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.round-controls button {
+  padding: 8px 12px;
+  font-size: 12px;
+  border-radius: 10px;
+}
+@media (max-width: 900px) {
+  .topbar {
+    grid-template-columns: 1fr;
+  }
+  .topbar-actions {
+    justify-content: flex-end;
+    width: 100%;
+  }
+  .round-controls {
+    justify-content: center;
+  }
+}

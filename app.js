@@ -1,54 +1,54 @@
-const PRIMARY_STORAGE_KEY = 'stream-case-game-v8';
-const LEGACY_STORAGE_KEYS = ['stream-case-game-v7', 'stream-case-game-v6'];
+const PRIMARY_STORAGE_KEY = 'stream-case-game-v9';
+const LEGACY_STORAGE_KEYS = ['stream-case-game-v8', 'stream-case-game-v7', 'stream-case-game-v6'];
 const STAGE_DEFS = [
   {
     id: 'round1',
     type: 'regular',
     label: 'Раунд 1',
     shortLabel: 'R1',
-    description: 'Правила: зрители выбирают номер кейса и вкус. Совпавший вкус даёт +1 очко. Для приза нужно 2 очка за раунд.'
+    description: 'Обычный этап · Выбирай кейс по номеру · Призовой вкус — пиши в чат.'
   },
   {
     id: 'round2',
     type: 'regular',
     label: 'Раунд 2',
     shortLabel: 'R2',
-    description: 'Правила: всё как в первом раунде. Пустой вкус не даёт очков, а спец-предметы работают по своей подписи.'
+    description: 'Обычный этап · Выбирай кейс по номеру · Призовой вкус — пиши в чат.'
   },
   {
     id: 'extra1',
     type: 'extra',
     label: 'Экстра Раунд 1',
     shortLabel: 'EX1',
-    description: 'Экстра-раунд: отдельная золотая настройка, редкий визуал и отдельное наполнение. Для приза всё так же нужно 2 очка за раунд.'
+    description: 'Экстра этап · Выбирай кейс по номеру · Призовой вкус — пиши в чат.'
   },
   {
     id: 'round3',
     type: 'regular',
     label: 'Раунд 3',
     shortLabel: 'R3',
-    description: 'Правила: продолжается обычная игра. Открывай кейс, который выбрали зрители, и считай очки по выпавшему предмету.'
+    description: 'Обычный этап · Выбирай кейс по номеру · Призовой вкус — пиши в чат.'
   },
   {
     id: 'round4',
     type: 'regular',
     label: 'Раунд 4',
     shortLabel: 'R4',
-    description: 'Правила: обычный раунд с теми же условиями. Пустой вкус не даёт очков, бонусные предметы дают преимущество.'
+    description: 'Обычный этап · Выбирай кейс по номеру · Призовой вкус — пиши в чат.'
   },
   {
     id: 'round5',
     type: 'regular',
     label: 'Раунд 5',
     shortLabel: 'R5',
-    description: 'Правила: финальный основной раунд. После него можно перейти в последний бонусный этап.'
+    description: 'Обычный этап · Выбирай кейс по номеру · Призовой вкус — пиши в чат.'
   },
   {
     id: 'extra2',
     type: 'extra',
     label: 'Экстра Раунд 2',
     shortLabel: 'EX2',
-    description: 'Финальный экстра-раунд: отдельное золотое наполнение, отдельные шансы и такой же порог — 2 очка за один раунд.'
+    description: 'Экстра этап · Выбирай кейс по номеру · Призовой вкус — пиши в чат.'
   },
 ];
 
@@ -103,7 +103,8 @@ function itemSignature(item) {
 }
 
 function previewSignature(item) {
-  return [String(item.name).trim().toLowerCase(), item.image, item.effect].join('__');
+  const normalizedName = String(item.name).trim().toLowerCase();
+  return normalizedName || String(item.image || '').trim().toLowerCase();
 }
 
 function makeDefaultItems(stageType) {
@@ -481,7 +482,7 @@ function renderRoundPanel() {
   currentStageTitle.textContent = stage.label;
   stageCounter.textContent = `${stageIndex + 1} / ${STAGE_DEFS.length}`;
   stageDescription.textContent = stage.description;
-  stageTypeBadge.textContent = stage.type === 'extra' ? '✨ Экстра раунд' : '🎯 Основной раунд';
+  stageTypeBadge.textContent = stage.type === 'extra' ? '✨ Экстра этап' : '🎯 Обычный этап';
 
   prevStageBtn.disabled = stageIndex <= 0;
   nextStageBtn.disabled = stageIndex >= STAGE_DEFS.length - 1;
