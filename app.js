@@ -1,5 +1,5 @@
-const STORAGE_KEY = 'caseRouletteConfigV2';
-const LEGACY_STORAGE_KEY = 'caseRouletteConfigV1';
+const STORAGE_KEY = 'caseRouletteConfigV3';
+const LEGACY_STORAGE_KEYS = ['caseRouletteConfigV2', 'caseRouletteConfigV1'];
 const TOTAL_CASES = 16;
 
 function makeSvgPlaceholder(text, bg = '#1b2434', accent = '#ffb347') {
@@ -68,8 +68,8 @@ function normalizeCase(rawCase, fallbackId) {
   return {
     id: Number(rawCase?.id) || fallbackId,
     name: rawCase?.name || fallbackName,
-    opened: Boolean(rawCase?.opened),
-    lastWon: rawCase?.lastWon ? normalizeItem(rawCase.lastWon, 0) : null,
+    opened: false,
+    lastWon: null,
     items: rawItems.map((item, index) => normalizeItem(item, index)),
   };
 }
@@ -84,6 +84,18 @@ function normalizeAppState(rawState) {
   });
 
   return base;
+}
+
+function serializeConfig(state) {
+  return {
+    cases: state.cases.map((caseData, index) => ({
+      id: Number(caseData.id) || index + 1,
+      name: caseData.name || `Кейс ${String(index + 1).padStart(2, '0')}`,
+      opened: false,
+      lastWon: null,
+      items: caseData.items.map((item, itemIndex) => normalizeItem(item, itemIndex)),
+    })),
+  };
 }
 
 let appState = loadConfig();
@@ -147,7 +159,7 @@ function bindEvents() {
       caseData.opened = false;
       caseData.lastWon = null;
     });
-    persistAndRender();
+    renderCasesGrid();
   });
 
   resetBtn.addEventListener('click', () => {
@@ -216,7 +228,7 @@ function renderCasesGrid() {
       node.classList.add('is-opened');
       badge.textContent = 'ОТКРЫТ';
       meta.innerHTML = caseData.lastWon
-        ? `Выпал предмет:<br><strong>${escapeHtml(caseData.lastWon.name)}</strong>`
+        ? `Выпал:<br><strong>${escapeHtml(caseData.lastWon.name)}</strong>`
         : 'Кейс уже открыт';
     } else {
       badge.textContent = 'ЗАКРЫТ';
@@ -253,9 +265,7 @@ function renderEditor() {
           try {
             const dataUrl = await fileToDataUrl(file);
             currentCase.items[index].image = dataUrl;
-            saveConfig();
-            renderEditor();
-            renderCasesGrid();
+            persistAndRender(false);
           } catch {
             alert('Не удалось прочитать файл. Попробуй другой JPG/JPEG.');
           }
@@ -269,9 +279,7 @@ function renderEditor() {
         if (key === 'weight') value = Math.max(1, Number(value) || 1);
         if (key === 'rarity') value = normalizeRarity(value);
         currentCase.items[index][key] = value;
-        saveConfig();
-        renderEditor();
-        renderCasesGrid();
+        persistAndRender(false);
       });
     });
 
@@ -301,7 +309,7 @@ function showOpenedCase(caseData) {
   rouletteTrack.style.transition = 'none';
   rouletteTrack.style.transform = 'translateX(0px)';
   modalTitle.textContent = `${caseData.name} — уже открыт`;
-  modalHint.textContent = 'Этот кейс уже был открыт ранее.';
+  modalHint.textContent = 'После обновления страницы кейс снова станет закрытым.';
   showResult(caseData.lastWon || normalizeItem(caseData.items[0], 0), true);
 }
 
@@ -395,7 +403,6 @@ function markCaseOpened(caseId, winningItem) {
   const caseData = getCaseById(caseId);
   caseData.opened = true;
   caseData.lastWon = normalizeItem(winningItem, 0);
-  saveConfig();
   renderCasesGrid();
 }
 
@@ -416,11 +423,11 @@ function getCaseById(caseId) {
 }
 
 function saveConfig() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeConfig(appState)));
 }
 
 function loadConfig() {
-  const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+  const stored = localStorage.getItem(STORAGE_KEY) || LEGACY_STORAGE_KEYS.map((key) => localStorage.getItem(key)).find(Boolean);
   if (!stored) return makeInitialConfig();
   try {
     return normalizeAppState(JSON.parse(stored));
@@ -429,15 +436,15 @@ function loadConfig() {
   }
 }
 
-function persistAndRender() {
+function persistAndRender(full = true) {
   saveConfig();
-  renderCaseSelector();
+  if (full) renderCaseSelector();
   renderCasesGrid();
   renderEditor();
 }
 
 function downloadConfig() {
-  const normalized = normalizeAppState(appState);
+  const normalized = serializeConfig(normalizeAppState(appState));
   const blob = new Blob([JSON.stringify(normalized, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -457,7 +464,7 @@ function importConfig(event) {
       appState = normalizeAppState(parsed);
       selectedCaseId = appState.cases[0]?.id || 1;
       persistAndRender();
-      alert('Конфиг успешно импортирован.');
+      alert('Конфиг успешно импортирован. Все кейсы стартуют закрытыми.');
     } catch {
       alert('Не удалось прочитать config.json');
     }

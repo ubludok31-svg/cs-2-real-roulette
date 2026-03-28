@@ -8,10 +8,10 @@
 </head>
 <body>
   <div class="app-shell">
-    <header class="topbar">
+    <header class="topbar compact-topbar">
       <div>
         <h1>Case Roulette</h1>
-        <p class="subtitle">16 кейсов. Закрытые открываются один раз, открытые остаются открытыми.</p>
+        <p class="subtitle">16 кейсов в сетке 4×4. После обновления страницы все кейсы снова становятся закрытыми.</p>
       </div>
       <div class="topbar-actions">
         <button id="openAdminBtn" class="ghost-btn">Админ-панель</button>
@@ -20,10 +20,10 @@
     </header>
 
     <main>
-      <section class="cases-section full-width">
-        <div class="section-head">
+      <section class="cases-section full-width compact-section">
+        <div class="section-head compact-head">
           <h2>Кейсы</h2>
-          <p>Нажми на закрытый кейс, чтобы открыть его. Открытый кейс остаётся открытым.</p>
+          <p>Открыл кейс — он остаётся открытым до перезагрузки страницы. Обновил страницу — все снова закрыты.</p>
         </div>
         <div id="casesGrid" class="cases-grid"></div>
       </section>
@@ -59,7 +59,7 @@
       <div class="modal-header">
         <div>
           <h3>Админ-панель</h3>
-          <p id="adminHint">Здесь настраиваются предметы, их редкость и фото для каждого кейса.</p>
+          <p id="adminHint">Настройка предметов, редкости, JPG/JPEG-фото и содержимого каждого кейса.</p>
         </div>
         <button id="closeAdminBtn" class="icon-btn" aria-label="Закрыть">✕</button>
       </div>
@@ -78,7 +78,7 @@
         </div>
 
         <div class="admin-note">
-          Можно добавить фото ссылкой или загрузить файл. Лучше всего использовать JPG/JPEG.
+          JPG/JPEG можно загрузить прямо в админке. Состояние открытых кейсов не сохраняется после обновления страницы.
         </div>
 
         <div id="itemsEditor" class="items-editor"></div>
@@ -90,9 +90,12 @@
     <button class="case-card">
       <div class="case-badge"></div>
       <div class="case-visual" aria-hidden="true">
+        <div class="case-glow"></div>
         <div class="case-handle"></div>
         <div class="case-lid"></div>
         <div class="case-body"></div>
+        <div class="case-side case-side-left"></div>
+        <div class="case-side case-side-right"></div>
         <div class="case-lock"></div>
       </div>
       <div class="case-name"></div>
