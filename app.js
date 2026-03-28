@@ -1,5 +1,5 @@
-const STORAGE_KEY = 'caseRouletteConfigV3';
-const LEGACY_STORAGE_KEYS = ['caseRouletteConfigV2', 'caseRouletteConfigV1'];
+const STORAGE_KEY = 'caseRouletteConfigV4';
+const LEGACY_STORAGE_KEYS = ['caseRouletteConfigV3', 'caseRouletteConfigV2', 'caseRouletteConfigV1'];
 const TOTAL_CASES = 16;
 
 function makeSvgPlaceholder(text, bg = '#1b2434', accent = '#ffb347') {
@@ -107,6 +107,7 @@ const casesGrid = document.getElementById('casesGrid');
 const caseSelector = document.getElementById('caseSelector');
 const itemsEditor = document.getElementById('itemsEditor');
 const addItemBtn = document.getElementById('addItemBtn');
+const copyCaseToAllBtn = document.getElementById('copyCaseToAllBtn');
 const saveConfigBtn = document.getElementById('saveConfigBtn');
 const resetBtn = document.getElementById('resetBtn');
 const resetOpenedBtn = document.getElementById('resetOpenedBtn');
@@ -152,6 +153,8 @@ function bindEvents() {
   });
 
   saveConfigBtn.addEventListener('click', downloadConfig);
+
+  copyCaseToAllBtn.addEventListener('click', copySelectedCaseToAll);
 
   resetOpenedBtn.addEventListener('click', () => {
     if (!confirm('Сделать все кейсы снова закрытыми?')) return;
@@ -309,15 +312,31 @@ function showOpenedCase(caseData) {
   rouletteTrack.style.transition = 'none';
   rouletteTrack.style.transform = 'translateX(0px)';
   modalTitle.textContent = `${caseData.name} — уже открыт`;
-  modalHint.textContent = 'После обновления страницы кейс снова станет закрытым.';
+  modalHint.textContent = 'Этот кейс уже открыт и останется открытым до обновления страницы.';
   showResult(caseData.lastWon || normalizeItem(caseData.items[0], 0), true);
+}
+
+function copySelectedCaseToAll() {
+  const sourceCase = getCaseById(selectedCaseId);
+  if (!sourceCase) return;
+
+  if (!confirm(`Скопировать предметы из кейса "${sourceCase.name}" во все 16 кейсов?`)) return;
+
+  const clonedItems = sourceCase.items.map((item, index) => normalizeItem(structuredClone(item), index));
+
+  appState.cases.forEach((caseData) => {
+    caseData.items = clonedItems.map((item, index) => normalizeItem(structuredClone(item), index));
+  });
+
+  persistAndRender();
+  alert('Содержимое выбранного кейса скопировано во все кейсы.');
 }
 
 function openCase(caseId) {
   const caseData = getCaseById(caseId);
   currentSpinCaseId = caseId;
   modalTitle.textContent = `${caseData.name} — открытие`;
-  modalHint.textContent = 'Предмет выбирается случайно из наполнения этого кейса.';
+  modalHint.textContent = 'Предмет выбирается случайно из наполнения этого кейса. Открытые кейсы держатся до обновления страницы.';
   resultCard.classList.add('hidden');
   openRouletteModal();
   runSpin(caseData);
@@ -371,7 +390,7 @@ function showResult(item, alreadyOpened) {
     <div class="result-card-inner">
       <div class="result-art"></div>
       <div>
-        <div class="item-rarity">${alreadyOpened ? 'Этот предмет уже был получен' : 'Выпал предмет'}</div>
+        <div class="item-rarity">${alreadyOpened ? 'Кейс уже был открыт' : 'Выпал предмет'}</div>
         <h3>${escapeHtml(item.name)}</h3>
         <p class="item-rarity">Редкость: ${escapeHtml(rarityLabelMap[normalizeRarity(item.rarity)] || item.rarity)}</p>
       </div>
