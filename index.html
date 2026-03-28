@@ -3,30 +3,70 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Case Roulette</title>
+  <title>Stream Case Game</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div class="bg-fx" aria-hidden="true">
+    <div class="spark spark-1"></div>
+    <div class="spark spark-2"></div>
+    <div class="spark spark-3"></div>
+    <div class="juice juice-1"></div>
+    <div class="juice juice-2"></div>
+  </div>
+
   <div class="app-shell">
-    <header class="topbar compact-topbar">
+    <header class="topbar">
       <div>
-        <h1>Case Roulette</h1>
-        <p class="subtitle">16 кейсов в сетке 4×4. Открытые кейсы остаются открытыми до обновления страницы.</p>
+        <div class="eyebrow">Панель для стрима</div>
+        <h1>Case Game</h1>
+        <p class="subtitle">4×4 кейса, 5 основных раундов и 2 экстра-этапа. Бомбы и галочки добавляются как обычные предметы со своей картинкой и шансом.</p>
       </div>
       <div class="topbar-actions">
         <button id="openAdminBtn" class="ghost-btn">Админ-панель</button>
-        <input id="configInput" type="file" accept="application/json" hidden />
       </div>
     </header>
 
-    <main>
-      <section class="cases-section full-width compact-section">
-        <div class="section-head compact-head">
-          <h2>Кейсы</h2>
-          <p>После обновления страницы все кейсы снова становятся закрытыми.</p>
+    <section class="round-panel" id="roundPanel">
+      <div class="round-main">
+        <div class="round-badge" id="stageTypeBadge">Обычный этап</div>
+        <div>
+          <div class="round-title-wrap">
+            <h2 id="currentStageTitle">Раунд 1</h2>
+            <span id="stageCounter" class="stage-counter">1 / 7</span>
+          </div>
+          <p id="stageDescription" class="round-subtitle">Открой кейс по номеру, который выбрали зрители.</p>
         </div>
-        <div id="casesGrid" class="cases-grid"></div>
-      </section>
+      </div>
+
+      <div class="round-controls">
+        <button id="newGameBtn" class="ghost-btn">Новая игра</button>
+        <button id="finishStageBtn" class="ghost-btn">Завершить этап</button>
+        <button id="prevStageBtn" class="ghost-btn">Назад</button>
+        <button id="nextStageBtn">Следующий этап</button>
+      </div>
+    </section>
+
+    <section class="stage-strip" id="stageStrip"></section>
+
+    <section class="viewer-panel">
+      <div class="viewer-panel-head">
+        <div>
+          <h3>Предметы текущего этапа</h3>
+          <p id="poolNote">Показываются все предметы, которые ты настроил для этого этапа.</p>
+        </div>
+      </div>
+      <div id="poolPreview" class="pool-preview"></div>
+    </section>
+
+    <main class="cases-section">
+      <div class="section-head compact-head">
+        <div>
+          <h3>Кейсы</h3>
+          <p>Открытые кейсы остаются открытыми в текущем этапе. При переходе на другой этап открывается новое поле.</p>
+        </div>
+      </div>
+      <div id="casesGrid" class="cases-grid"></div>
     </main>
   </div>
 
@@ -56,36 +96,50 @@
   <div id="adminModal" class="modal hidden" aria-hidden="true">
     <div class="modal-backdrop" id="closeAdminBackdrop"></div>
     <div class="modal-content admin-modal-content">
-      <div class="modal-header">
+      <div class="modal-header admin-header">
         <div>
           <h3>Админ-панель</h3>
-          <p id="adminHint">Здесь настраиваются предметы, редкость, вес и JPG/JPEG-фото.</p>
+          <p id="adminHint">Отдельно настраиваются обычные раунды и экстра-этапы. На основном экране видны только раунды, кейсы и предметы.</p>
         </div>
-        <button id="closeAdminBtn" class="icon-btn" aria-label="Закрыть">✕</button>
+        <div class="modal-header-actions">
+          <button id="importConfigBtn" class="ghost-btn">Импорт config.json</button>
+          <button id="saveConfigBtn" class="ghost-btn">Скачать config.json</button>
+          <button id="closeAdminBtn" class="icon-btn" aria-label="Закрыть">✕</button>
+        </div>
+      </div>
+
+      <div class="admin-tabs">
+        <button id="regularTabBtn" class="tab-btn active" type="button">Обычные этапы</button>
+        <button id="extraTabBtn" class="tab-btn" type="button">Экстра-этапы</button>
       </div>
 
       <section class="editor-section embedded-editor">
         <div class="editor-toolbar">
           <label>
+            Этап:
+            <select id="stageSelector"></select>
+          </label>
+          <label>
             Кейс:
             <select id="caseSelector"></select>
           </label>
           <button id="addItemBtn">Добавить предмет</button>
-          <button id="copyToAllBtn" class="ghost-btn">Скопировать содержимое во все кейсы</button>
-          <button id="importConfigBtn" class="ghost-btn">Импорт config.json</button>
-          <button id="saveConfigBtn" class="ghost-btn">Скачать config.json</button>
-          <button id="resetOpenedBtn" class="ghost-btn">Закрыть все кейсы</button>
-          <button id="resetBtn" class="ghost-btn danger">Сбросить всё</button>
+          <button id="copyToAllBtn" class="ghost-btn">Кейс → во все кейсы этапа</button>
+          <button id="copyStageTypeBtn" class="ghost-btn">Этап → во все этапы этого типа</button>
+          <button id="resetCurrentStageBtn" class="ghost-btn">Закрыть кейсы этапа</button>
+          <button id="resetAllStagesBtn" class="ghost-btn danger">Сбросить всю игру</button>
         </div>
 
         <div class="admin-note">
-          Фото можно вставить ссылкой или загрузить JPG/JPEG/PNG/WebP прямо в браузер. Курсор при вводе больше не сбивается.
+          Веса, картинки и редкости настраиваются здесь. Бомбу, галочку и любые спец-иконки добавляй как обычные предметы с собственной картинкой.
         </div>
 
         <div id="itemsEditor" class="items-editor"></div>
       </section>
     </div>
   </div>
+
+  <input id="configInput" type="file" accept="application/json" hidden />
 
   <template id="caseCardTemplate">
     <button class="case-card" type="button">
@@ -109,14 +163,14 @@
       <div class="editor-item-grid">
         <label>
           Предмет
-          <input data-field="name" type="text" placeholder="Например: Dragon Lore" />
+          <input data-field="name" type="text" placeholder="Например: Манго" />
         </label>
         <label>
           Фото / путь к картинке
           <input data-field="image" type="text" placeholder="assets/item.jpg или https://..." />
         </label>
         <label>
-          JPG / JPEG / PNG
+          JPG / JPEG / PNG / WebP
           <input data-field="file" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" />
         </label>
         <label>
