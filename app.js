@@ -1,12 +1,55 @@
-const STORAGE_KEY = 'stream-case-game-v6';
+const PRIMARY_STORAGE_KEY = 'stream-case-game-v8';
+const LEGACY_STORAGE_KEYS = ['stream-case-game-v7', 'stream-case-game-v6'];
 const STAGE_DEFS = [
-  { id: 'round1', type: 'regular', label: 'Раунд 1', shortLabel: 'R1', description: 'Открой кейс по номеру, который выбрали зрители.' },
-  { id: 'round2', type: 'regular', label: 'Раунд 2', shortLabel: 'R2', description: 'Второй обычный этап перед первым бонусом.' },
-  { id: 'extra1', type: 'extra', label: 'Экстра после 2', shortLabel: 'EX1', description: 'Экстра-этап с отдельным наполнением и более ярким визуалом.' },
-  { id: 'round3', type: 'regular', label: 'Раунд 3', shortLabel: 'R3', description: 'Третий основной этап.' },
-  { id: 'round4', type: 'regular', label: 'Раунд 4', shortLabel: 'R4', description: 'Четвёртый основной этап.' },
-  { id: 'round5', type: 'regular', label: 'Раунд 5', shortLabel: 'R5', description: 'Финальный основной этап перед последним бонусом.' },
-  { id: 'extra2', type: 'extra', label: 'Экстра после 5', shortLabel: 'EX2', description: 'Финальный экстра-этап с отдельным набором кейсов.' },
+  {
+    id: 'round1',
+    type: 'regular',
+    label: 'Раунд 1',
+    shortLabel: 'R1',
+    description: 'Правила: зрители выбирают номер кейса и вкус. Совпавший вкус даёт +1 очко. Для приза нужно 2 очка за раунд.'
+  },
+  {
+    id: 'round2',
+    type: 'regular',
+    label: 'Раунд 2',
+    shortLabel: 'R2',
+    description: 'Правила: всё как в первом раунде. Пустой вкус не даёт очков, а спец-предметы работают по своей подписи.'
+  },
+  {
+    id: 'extra1',
+    type: 'extra',
+    label: 'Экстра Раунд 1',
+    shortLabel: 'EX1',
+    description: 'Экстра-раунд: отдельная золотая настройка, редкий визуал и отдельное наполнение. Для приза всё так же нужно 2 очка за раунд.'
+  },
+  {
+    id: 'round3',
+    type: 'regular',
+    label: 'Раунд 3',
+    shortLabel: 'R3',
+    description: 'Правила: продолжается обычная игра. Открывай кейс, который выбрали зрители, и считай очки по выпавшему предмету.'
+  },
+  {
+    id: 'round4',
+    type: 'regular',
+    label: 'Раунд 4',
+    shortLabel: 'R4',
+    description: 'Правила: обычный раунд с теми же условиями. Пустой вкус не даёт очков, бонусные предметы дают преимущество.'
+  },
+  {
+    id: 'round5',
+    type: 'regular',
+    label: 'Раунд 5',
+    shortLabel: 'R5',
+    description: 'Правила: финальный основной раунд. После него можно перейти в последний бонусный этап.'
+  },
+  {
+    id: 'extra2',
+    type: 'extra',
+    label: 'Экстра Раунд 2',
+    shortLabel: 'EX2',
+    description: 'Финальный экстра-раунд: отдельное золотое наполнение, отдельные шансы и такой же порог — 2 очка за один раунд.'
+  },
 ];
 
 const rarityLabelMap = {
@@ -26,9 +69,16 @@ const effectLabelMap = {
   bomb: 'Бомба — сброс всех очков',
 };
 
+const effectHeadlineMap = {
+  empty: 'Пустой вкус',
+  plus: '+1 ОЧКО',
+  auto: 'АВТО +1',
+  bomb: 'БОМБА',
+};
+
 function defaultImage(seed) {
   const safe = encodeURIComponent(seed);
-  return `https://placehold.co/600x600/101826/EAF1FF?text=${safe}`;
+  return `https://placehold.co/900x900/101826/EAF1FF?text=${safe}`;
 }
 
 function inferEffectFromName(name = '') {
@@ -50,6 +100,10 @@ function makeItemId() {
 
 function itemSignature(item) {
   return [item.name, item.image, item.rarity, item.effect].join('__');
+}
+
+function previewSignature(item) {
+  return [String(item.name).trim().toLowerCase(), item.image, item.effect].join('__');
 }
 
 function makeDefaultItems(stageType) {
@@ -131,9 +185,9 @@ function normalizeStage(rawStage, stageDef) {
   return {
     id: stageDef.id,
     type: stageDef.type,
-    label: rawStage?.label || stageDef.label,
-    shortLabel: rawStage?.shortLabel || stageDef.shortLabel,
-    description: rawStage?.description || stageDef.description,
+    label: stageDef.label,
+    shortLabel: stageDef.shortLabel,
+    description: stageDef.description,
     forcedNextItemSignature: String(rawStage?.forcedNextItemSignature || ''),
     cases: normalizedCases,
   };
@@ -153,17 +207,21 @@ function normalizeState(rawState) {
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+  localStorage.setItem(PRIMARY_STORAGE_KEY, JSON.stringify(appState));
 }
 
 function loadState() {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (!stored) return makeInitialState();
-  try {
-    return normalizeState(JSON.parse(stored));
-  } catch {
-    return makeInitialState();
+  const allKeys = [PRIMARY_STORAGE_KEY, ...LEGACY_STORAGE_KEYS];
+  for (const key of allKeys) {
+    const stored = localStorage.getItem(key);
+    if (!stored) continue;
+    try {
+      return normalizeState(JSON.parse(stored));
+    } catch {
+      // ignore broken legacy values
+    }
   }
+  return makeInitialState();
 }
 
 const openResultsByStage = new Map();
@@ -223,6 +281,7 @@ function init() {
   syncAdminSelectionWithCurrentStage();
   bindEvents();
   renderAll();
+  saveState();
 }
 
 function bindEvents() {
@@ -270,11 +329,11 @@ function bindEvents() {
     targetCase.items.push(newItem);
     saveState();
     renderItemsEditor();
+    renderForcePickSelector();
     if (selectedStageId === appState.currentStageId) {
       renderPoolPreview();
       renderCasesGrid();
     }
-    renderForcePickSelector();
     requestAnimationFrame(() => {
       const lastInput = itemsEditor.querySelector('.editor-item:last-child input[data-field="name"]');
       if (lastInput) lastInput.focus();
@@ -342,15 +401,21 @@ function bindEvents() {
   closeRouletteBackdrop.addEventListener('click', closeRouletteModal);
   closeModalBtn.addEventListener('click', closeRouletteModal);
   resultCloseBtn.addEventListener('click', closeRouletteModal);
+
+  window.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    if (!adminModal.classList.contains('hidden')) closeAdminModal();
+    else if (!rouletteModal.classList.contains('hidden')) closeRouletteModal();
+  });
 }
 
 function renderAll() {
+  updateTheme();
   renderRoundPanel();
   renderStageStrip();
   renderPoolPreview();
   renderCasesGrid();
   renderAdmin();
-  updateTheme();
 }
 
 function getCurrentStageIndex() {
@@ -375,7 +440,7 @@ function getStagePreviewItems(stage) {
   stage.cases.forEach((caseData) => {
     caseData.items.forEach((item, index) => {
       const normalized = normalizeItem(item, index);
-      const signature = itemSignature(normalized);
+      const signature = previewSignature(normalized);
       if (!unique.has(signature)) unique.set(signature, normalized);
     });
   });
@@ -416,7 +481,7 @@ function renderRoundPanel() {
   currentStageTitle.textContent = stage.label;
   stageCounter.textContent = `${stageIndex + 1} / ${STAGE_DEFS.length}`;
   stageDescription.textContent = stage.description;
-  stageTypeBadge.textContent = stage.type === 'extra' ? 'Экстра-этап' : 'Обычный этап';
+  stageTypeBadge.textContent = stage.type === 'extra' ? '✨ Экстра раунд' : '🎯 Основной раунд';
 
   prevStageBtn.disabled = stageIndex <= 0;
   nextStageBtn.disabled = stageIndex >= STAGE_DEFS.length - 1;
@@ -732,9 +797,10 @@ function openCase(stageId, caseId) {
   spinCaseId = caseId;
   modalTitle.textContent = `${stage.label} · ${caseData.name}`;
   modalHint.textContent = stage.type === 'extra'
-    ? 'Экстра-этап активен. Визуал и наполнение здесь настраиваются отдельно.'
+    ? 'Экстра-раунд активен. Визуал и наполнение здесь настраиваются отдельно.'
     : 'Предмет выбирается случайно из наполнения этого кейса.';
-  resultCard.classList.add('hidden');
+  resultCard.className = 'result-card hidden';
+  resultCard.innerHTML = '';
   openRouletteModal();
   runSpin(stage, caseData);
 }
@@ -754,11 +820,12 @@ function runSpin(stage, caseData) {
   rouletteTrack.innerHTML = '';
   rouletteTrack.style.transition = 'none';
   rouletteTrack.style.transform = 'translateX(0px)';
-  resultCard.classList.add('hidden');
+  resultCard.className = 'result-card hidden';
+  resultCard.innerHTML = '';
   isSpinning = true;
 
-  const totalSlots = 46;
-  const winnerIndex = 38;
+  const totalSlots = 56;
+  const winnerIndex = 47;
   const trackItems = Array.from({ length: totalSlots }, (_, index) => {
     if (index === winnerIndex) return winningItem;
     return caseData.items[Math.floor(Math.random() * caseData.items.length)];
@@ -772,8 +839,8 @@ function runSpin(stage, caseData) {
     requestAnimationFrame(() => {
       const itemWidth = 190;
       const wrapperWidth = rouletteTrack.parentElement.clientWidth;
-      const targetOffset = (winnerIndex * itemWidth) - (wrapperWidth / 2) + (itemWidth / 2) + randomInt(-24, 24);
-      rouletteTrack.style.transition = 'transform 5.6s cubic-bezier(0.08, 0.8, 0.16, 1)';
+      const targetOffset = (winnerIndex * itemWidth) - (wrapperWidth / 2) + (itemWidth / 2) + randomInt(-16, 16);
+      rouletteTrack.style.transition = 'transform 8.8s cubic-bezier(0.08, 0.78, 0.16, 1)';
       rouletteTrack.style.transform = `translateX(-${targetOffset}px)`;
     });
   });
@@ -784,19 +851,21 @@ function runSpin(stage, caseData) {
     isSpinning = false;
     if (spinStageId === appState.currentStageId) renderCasesGrid();
     showResult(winningItem, false);
-  }, 5900);
+  }, 9150);
 }
 
 function showResult(item, alreadyOpened) {
+  const rarity = normalizeRarity(item.rarity);
+  resultCard.className = `result-card ${alreadyOpened ? 'is-opened-result' : ''} effect-${item.effect}`;
   resultCard.classList.remove('hidden');
   resultCard.innerHTML = `
-    <div class="result-card-inner rarity-${normalizeRarity(item.rarity)}">
+    <div class="result-card-inner rarity-${rarity}">
       <div class="result-art"></div>
       <div class="result-copy">
-        <div class="item-rarity large">${alreadyOpened ? 'Этот предмет уже выпал из кейса на текущем этапе' : 'Выпал предмет'}</div>
+        <div class="result-headline">${escapeHtml(alreadyOpened ? 'УЖЕ ОТКРЫТ' : effectHeadlineMap[item.effect])}</div>
         <h3>${escapeHtml(item.name)}</h3>
         <p class="item-rarity large">${escapeHtml(effectLabelMap[item.effect])}</p>
-        <p class="item-rarity large">Редкость: ${escapeHtml(rarityLabelMap[normalizeRarity(item.rarity)] || item.rarity)}</p>
+        <p class="item-rarity large">Редкость: ${escapeHtml(rarityLabelMap[rarity] || rarity)}</p>
       </div>
     </div>
   `;
